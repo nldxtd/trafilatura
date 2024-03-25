@@ -3,6 +3,11 @@
 Module bundling all functions needed to extract the text in a webpage.
 """
 
+## This file is available from https://github.com/adbar/trafilatura
+## under GNU GPL v3 license
+
+
+# standard
 import logging
 import re  # import regex as re
 import warnings
@@ -30,6 +35,7 @@ from .xpaths import (BODY_XPATH, COMMENTS_DISCARD_XPATH, COMMENTS_XPATH,
                      DISCARD_IMAGE_ELEMENTS, OVERALL_DISCARD_XPATH,
                      PAYWALL_DISCARD_XPATH, PRECISION_DISCARD_XPATH,
                      REMOVE_COMMENTS_XPATH, TEASER_DISCARD_XPATH)
+from .math_utils import convert_math_node
 
 LOGGER = logging.getLogger(__name__)
 
@@ -585,6 +591,7 @@ def extract_content(tree, options):
             LOGGER.debug(expr)
             break
     temp_text = ' '.join(result_body.itertext()).strip()
+    
     # try parsing wild <p> elements if nothing found or text too short
     # todo: test precision and recall settings here
     if len(result_body) == 0 or len(temp_text) < options.config.getint('DEFAULT', 'MIN_EXTRACTED_SIZE'):
@@ -834,7 +841,7 @@ def determine_returnstring(document, output_format, include_formatting, tei_vali
 
 
 def bare_extraction(filecontent, url=None, no_fallback=False,  # fast=False,
-                    favor_precision=False, favor_recall=False,
+                    favor_precision=False, favor_recall=False, convert_math=True,
                     include_comments=True, output_format='python', target_language=None,
                     include_tables=True, include_images=False, include_formatting=False,
                     include_links=False, deduplicate=False,
@@ -936,18 +943,22 @@ def bare_extraction(filecontent, url=None, no_fallback=False,  # fast=False,
         else:
             document = Document()
 
-        # regroup extraction options
-        options = Extractor(config, no_fallback, favor_precision, favor_recall,
-                            include_comments, include_formatting, include_links,
-                            include_images, include_tables, deduplicate,
-                            target_language)
-
         # prune all xpath expressions that user specified
         # no backup as this is unetre full control of the user
         if prune_xpath is not None:
             if isinstance(prune_xpath, str):
                 prune_xpath = [prune_xpath]
             tree = prune_unwanted_nodes(tree, [XPath(x) for x in prune_xpath])
+            
+        # add math processing
+        if convert_math is True:
+            tree = convert_math_node(tree)
+        
+        # regroup extraction options
+        options = Extractor(config, no_fallback, favor_precision, favor_recall,
+                            include_comments, include_formatting, include_links,
+                            include_images, include_tables, deduplicate,
+                            target_language)
 
         # backup (or not) for further processing
         tree_backup_1 = deepcopy(tree) if no_fallback is False else None
